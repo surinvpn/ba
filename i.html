@@ -61,10 +61,8 @@ deb http://packages.dotdeb.org jessie all
 deb http://download.webmin.com/download/repository sarge contrib
 deb http://webmin.mirror.somersettechsolutions.co.uk/repository sarge contrib
 END
-wget "https://raw.githubusercontent.com/surinvpn/ba/master/dotdeb.gpg"
-wget "https://raw.githubusercontent.com/nwqionnwkn/OPENEXTRA/master/Config/jcameron-key.asc"
-cat dotdeb.gpg | apt-key add -;rm dotdeb.gpg
-cat jcameron-key.asc | apt-key add -;rm jcameron-key.asc
+wget -O - "https://bintray.com/user/downloadSubjectPublicKey?username=bintray" Release-neofetch.key && sudo apt-key add Release-neofetch.key && rm Release-neofetch.key
+
 elif [[ "$VERSION_ID" = 'VERSION_ID="9"'  ]]; then
 # Debian 9
 cat > /etc/apt/sources.list <<END
@@ -74,10 +72,7 @@ deb http://packages.dotdeb.org jessie all
 deb http://download.webmin.com/download/repository sarge contrib
 deb http://webmin.mirror.somersettechsolutions.co.uk/repository sarge contrib
 END
-wget "https://raw.githubusercontent.com/surinvpn/ba/master/dotdeb.gpg"
-wget "https://raw.githubusercontent.com/nwqionnwkn/OPENEXTRA/master/Config/jcameron-key.asc"
-cat dotdeb.gpg | apt-key add -;rm dotdeb.gpg
-cat jcameron-key.asc | apt-key add -;rm jcameron-key.asc
+wget -O - "https://bintray.com/user/downloadSubjectPublicKey?username=bintray" Release-neofetch.key && sudo apt-key add Release-neofetch.key && rm Release-neofetch.key
 fi
 
 # update
@@ -91,15 +86,6 @@ apt-get -y install nano iptables dnsutils openvpn screen whois ngrep unzip unrar
 
 echo -e "\033[1;32m "
 # install neofetch
-if [[ "$VERSION_ID" = 'VERSION_ID="8"' ]]; then
-# Debian 8
-echo "deb http://dl.bintray.com/dawidd6/neofetch jessie main" | sudo tee -a /etc/apt/sources.list
-curl -L "https://bintray.com/user/downloadSubjectPublicKey?username=bintray" -o Release-neofetch.key && sudo apt-key add Release-neofetch.key && rm Release-neofetch.key
-elif [[ "$VERSION_ID" = 'VERSION_ID="9"'  ]]; then
-# Debian 9
-echo "deb http://dl.bintray.com/dawidd6/neofetch stretch main" | sudo tee -a /etc/apt/sources.list
-curl -L "https://bintray.com/user/downloadSubjectPublicKey?username=bintray" -o Release-neofetch.key && sudo apt-key add Release-neofetch.key && rm Release-neofetch.key
-fi
 
 apt-get update
 apt-get install neofetch
@@ -185,9 +171,6 @@ service dropbear restart
 # Install Squid
 echo -e "\033[1;33m"
 if [[ "$VERSION_ID" = 'VERSION_ID="8"' ]]; then
-		if [[ -e /etc/squid3/squid.conf ]]; then
-			apt-get -y remove --purge squid3
-		fi
           # Squid Debian 8 
 		apt-get -y install squid3
 		cp /etc/squid3/squid.conf /etc/squid3/squid.conf.orig
@@ -195,11 +178,7 @@ wget -O /etc/squid3/squid.conf "https://raw.githubusercontent.com/surinvpn/ba/ma
 MYIP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | grep -v '192.168'`;
 sed -i s/xxxxxxxxx/$MYIP/g /etc/squid3/squid.conf;
 service squid3 restart
-
 elif [[ "$VERSION_ID" = 'VERSION_ID="9"'  ]]; then
-		if [[ -e /etc/squid/squid.conf ]]; then
-			apt-get -y remove --purge squid
-		fi
             # Squid Debian 9
 		apt-get -y install squid
 		cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
@@ -207,7 +186,6 @@ wget -O /etc/squid/squid.conf "https://raw.githubusercontent.com/surinvpn/ba/mas
 MYIP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | grep -v '192.168'`;
 sed -i s/xxxxxxxxx/$MYIP/g /etc/squid3/squid.conf;
 service squid restart
-
 fi
 
 
