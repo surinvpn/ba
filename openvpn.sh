@@ -481,14 +481,14 @@ ok "➡ apt-get install ssl"
 apt-get install -qy stunnel4 > /dev/null 2>&1
 cat > /etc/stunnel/stunnel.conf <<-END
 cert = /etc/stunnel/stunnel.pem
-client = no
+client = yes
 socket = a:SO_REUSEADDR=1
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
 
 
 [squid]
-accept = 80
+accept = 8020
 connect = 127.0.0.1:8080
 [dropbear]
 accept = 444
@@ -497,7 +497,7 @@ connect = 127.0.0.1:3128
 accept = 442
 connect = 127.0.0.1:22
 [openvpn]
-accept = 443
+accept = 194
 connect = 127.0.0.1:1194
 END
 
