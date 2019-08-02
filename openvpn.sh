@@ -1,7 +1,22 @@
 #!/bin/sh
- 
+
 # Script Created by Jerome Laliag <jeromelaliag@yahoo.com>
- 
+
+# extract ip address
+if [ -z "$1" ]; then
+clear
+echo
+echo "Error: Payload not found! Please execute again with payload."
+echo
+echo "Example: $0<space><payloadhere>"
+echo
+echo "or execute the command like this."
+echo
+echo "$0 whatsapp.com"
+echo
+echo "Note: m.facebook.com payload is example."
+echo
+else
 IPADDRESS=$(wget -qO- ipv4.icanhazip.com);
 if [[ "$IPADDRESS" = "" ]]; then
     IPADDRESS=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | grep -v '192.168'`;
@@ -10,10 +25,6 @@ fi
 apt-get clean
 # update repo
 apt-get update
-# upgrade system
-apt-get -y upgrade
-# full upgrade system
-apt-get -y full-upgrade
 # install needs
 apt-get -y install stunnel4 apache2 openvpn easy-rsa ufw
 # stunnel
@@ -24,12 +35,12 @@ echo "client = no" > /etc/stunnel/stunnel.conf
 echo "pid = /var/run/stunnel.pid" >> /etc/stunnel/stunnel.conf
 echo "[openvpn]" >> /etc/stunnel/stunnel.conf
 echo "accept = 443" >> /etc/stunnel/stunnel.conf
-echo "connect = 127.0.0.1:443" >> /etc/stunnel/stunnel.conf
+echo "connect = 127.0.0.1:110" >> /etc/stunnel/stunnel.conf
 echo "cert = /etc/stunnel/stunnel.pem" >> /etc/stunnel/stunnel.conf
 sudo sed -i -e 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
 iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 sudo cp /etc/stunnel/stunnel.pem ~
-echo "client = yes\ndebug = 6\n[openvpn]\naccept = 127.0.0.1:443\nconnect = $IPADDRESS:443\nTIMEOUTclose = 0\nverify = 0\nsni = m.facebook.com" > /var/www/html/stunnel.conf
+echo "client = yes\ndebug = 6\n[openvpn]\naccept = 127.0.0.1:110\nconnect = $IPADDRESS:443\nTIMEOUTclose = 0\nverify = 0\nsni = $1" > /var/www/html/stunnel.conf
 # openvpn
 cp -r /usr/share/easy-rsa/ /etc/openvpn
 mkdir /etc/openvpn/easy-rsa/keys
@@ -62,7 +73,7 @@ cp /etc/openvpn/easy-rsa/keys/server.key /etc/openvpn/server.key
 cp /etc/openvpn/easy-rsa/keys/ca.crt /etc/openvpn/ca.crt
 # setting server
 cat > /etc/openvpn/server.conf <<-END
-port 443
+port 110
 proto tcp
 dev tun
 ca ca.crt
@@ -95,7 +106,7 @@ cat > /var/www/html/openvpn.ovpn <<-END
 client
 dev tun
 proto tcp
-remote $IPADDRESS 443
+remote $IPADDRESS:110@$1 110
 persist-key
 persist-tun
 dev tun
@@ -114,8 +125,14 @@ route-method exe
 route-delay 2
 cipher none
 http-proxy $IPADDRESS 8080
+http-proxy-option CUSTOM-HEADER CONNECT HTTP/1.0
+http-proxy-option CUSTOM-HEADER Host $1
+http-proxy-option CUSTOM-HEADER X-Online-Host $1
+http-proxy-option CUSTOM-HEADER X-Forward-Host $1
+http-proxy-option CUSTOM-HEADER Connection keep-alive
+http-proxy-option CUSTOM-HEADER Proxy-Connection keep-alive
 http-proxy-retry
- 
+
 END
 echo '<ca>' >> /var/www/html/openvpn.ovpn
 cat /etc/openvpn/ca.crt >> /var/www/html/openvpn.ovpn
@@ -125,7 +142,7 @@ cat > /var/www/html/openvpnssl.ovpn <<-END
 client
 dev tun
 proto tcp
-remote 127.0.0.1 443
+remote 127.0.0.1 110
 persist-key
 persist-tun
 dev tun
@@ -139,11 +156,14 @@ mute-replay-warnings
 auth-user-pass
 redirect-gateway def1
 script-security 2
+http-proxy-option CUSTOM-HEADER CONNECT HTTP/1.0
+http-proxy-option CUSTOM-HEADER Host $1
+http-proxy $IPADDRESS 8080
 route $IPADDRESS 255.255.255.255 net_gateway
 route-method exe
 route-delay 2
 cipher none
- 
+
 END
 echo '<ca>' >> /var/www/html/openvpnssl.ovpn
 cat /etc/openvpn/ca.crt >> /var/www/html/openvpnssl.ovpn
@@ -153,7 +173,6 @@ cd /var/www/html/
 tar -zcvf /var/www/html/openvpn.tgz openvpn.ovpn openvpnssl.ovpn stunnel.conf
 # install squid
 apt-get -y install squid
-cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
 cat > /etc/squid/squid.conf <<-END
 acl localhost src 127.0.0.1/32 ::1
 acl to_localhost dst 127.0.0.0/8 0.0.0.0/32 ::1
@@ -197,7 +216,7 @@ cat > /etc/iptables.up.rules <<-END
 -A POSTROUTING -s 192.168.100.0/24 -o eth0 -j MASQUERADE
 -A POSTROUTING -s 10.1.0.0/24 -o eth0 -j MASQUERADE
 COMMIT
- 
+
 *filter
 :INPUT ACCEPT [19406:27313311]
 :FORWARD ACCEPT [0:0]
@@ -211,9 +230,9 @@ COMMIT
 -A INPUT -p tcp --dport 85  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 80  -m state --state NEW -j ACCEPT
 -A INPUT -p udp --dport 80  -m state --state NEW -j ACCEPT
--A INPUT -p tcp --dport 1194  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 443  -m state --state NEW -j ACCEPT
--A INPUT -p udp --dport 443  -m state --state NEW -j ACCEPT
+-A INPUT -p tcp --dport 110  -m state --state NEW -j ACCEPT
+-A INPUT -p udp --dport 110  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 3128  -m state --state NEW -j ACCEPT
 -A INPUT -p udp --dport 3128  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 8000  -m state --state NEW -j ACCEPT
@@ -221,12 +240,12 @@ COMMIT
 -A INPUT -p tcp --dport 8080  -m state --state NEW -j ACCEPT
 -A INPUT -p udp --dport 8080  -m state --state NEW -j ACCEPT
 COMMIT
- 
+
 *raw
 :PREROUTING ACCEPT [158575:227800758]
 :OUTPUT ACCEPT [46145:2312668]
 COMMIT
- 
+
 *mangle
 :PREROUTING ACCEPT [158575:227800758]
 :INPUT ACCEPT [158575:227800758]
@@ -250,7 +269,7 @@ sed -i '$ i\echo "nameserver 8.8.4.4" >> /etc/resolv.conf' /etc/rc.local
 ln -fs /usr/share/zoneinfo/Asia/Manila /etc/localtime
 # setting ufw
 ufw allow ssh
-ufw allow 443/tcp
+ufw allow 110/tcp
 sed -i 's|DEFAULT_INPUT_POLICY="DROP"|DEFAULT_INPUT_POLICY="ACCEPT"|' /etc/default/ufw
 sed -i 's|DEFAULT_FORWARD_POLICY="DROP"|DEFAULT_FORWARD_POLICY="ACCEPT"|' /etc/default/ufw
 cat > /etc/ufw/before.rules <<-END
@@ -269,22 +288,19 @@ ufw disable
 # set ipv4 forward
 echo 1 > /proc/sys/net/ipv4/ip_forward
 sed -i 's|#net.ipv4.ip_forward=1|net.ipv4.ip_forward=1|' /etc/sysctl.conf
-# clean
-apt-get clean
-# update repo
-apt-get update
-# upgrade
-apt-get -y upgrade
-# full upgrade
-apt-get -y full-upgrade
-# fix missing
-apt-get --fix-missing install
-# remove useless
-apt-get -y autoremove
+# restart apps
+service squid stop
+service squid3 stop
+service squid4 stop
+service squid start
+service squid3 start
+service squid4 start
+service stunnel4 restart
+service openvpn stop
+service openvpn start
 # create openvpn account
-RANDOMNUM=`cat /dev/urandom | tr -dc '0-9' | fold -w 6 | head -n 1`
-useradd openvpn
-echo "openvpn:$RANDOMNUM" | chpasswd
+useradd root
+echo "root:chai@2019" | chpasswd
 clear
 echo "######### Download your config files here! #########"
 echo "~> http://$IPADDRESS/openvpn.ovpn - Normal config"
@@ -293,12 +309,21 @@ echo "~> http://$IPADDRESS/stunnel.conf - Stunnel config file"
 echo "~> http://$IPADDRESS/openvpn.tgz - All config"
 echo "######### Download your config files here! #########"
 echo
-echo "################# OpenVPN Account #################"
-echo "~> Username: openvpn"
-echo "~> Password: $RANDOMNUM"
-echo "################# OpenVPN Account #################"
+echo "################# OpenVPN Account ##################"
+echo "~> Username: root"
+echo "~> Password: chai@2019"
+echo "################# OpenVPN Account ##################"
 echo
-echo "Your system will reboot in 1 minute."
-echo "Do not press CTRL+C to avoid reboot cancelation!"
-sleep 60
-reboot &
+echo "######### To Add OpenVPN User Account ##############"
+echo "useradd USERNAMEHERE"
+echo "echo USERNAMEHERE:PASSWORDHERE | chpasswd"
+echo "######### To Add OpenVPN User Account ##############"
+echo
+echo "######## To Change OpenVPN User Account ############"
+echo "echo USERNAMEHERE:PASSWORDHERE | chpasswd"
+echo "######## To Change OpenVPN User Account ############"
+echo
+echo "########### To Delete OpenVPN Account ##############"
+echo "userdel USERNAMEHERE"
+echo "########### To Delete OpenVPN Account ##############"
+fi
