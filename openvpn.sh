@@ -1,5 +1,4 @@
 #!/bin/sh
-MYIP=$(wget -qO- ipv4.icanhazip.com);
 wget -O - https://swupdate.openvpn.net/repos/repo-public.gpg|apt-key add -
 sleep 2
 echo "deb http://build.openvpn.net/debian/openvpn/release/2.4 stretch main" > /etc/apt/sources.list.d/openvpn-aptrepo.list
@@ -7,9 +6,10 @@ echo "deb http://build.openvpn.net/debian/openvpn/release/2.4 stretch main" > /e
 apt install openvpn nginx php7.0-fpm stunnel4 squid3 dropbear easy-rsa vnstat ufw build-essential fail2ban dnsutils zip -y
 
 # initializing var
-
-MYIP=`ifconfig eth0 | awk 'NR==2 {print $2}'`
-MYIP2="s/xxxxxxxxx/$MYIP/g";
+MYIP=$(wget -qO- ipv4.icanhazip.com);
+if [[ "$MYIP" = "" ]]; then
+    MYIP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | grep -v '192.168'`;
+fi
 cd /root
 wget "https://raw.githubusercontent.com/jm051484/VPSauto/master/tool/plugin.tgz"
 wget "https://raw.githubusercontent.com/jm051484/VPSauto/master/tool/premiummenu.zip"
@@ -48,7 +48,7 @@ echo "/bin/false" >> /etc/shells
 
 # install squid3
 wget -O /etc/squid/squid.conf "https://raw.githubusercontent.com/jm051484/Deb83in1Autoscript/master/squid3.conf"
-sed -i $MYIP2 /etc/squid/squid.conf;
+sed -i $MYIP /etc/squid/squid.conf;
 
 # setting banner
 rm /etc/issue.net
@@ -204,7 +204,7 @@ accept = 127.0.0.1:443
 connect = $MYIP:441
 TIMEOUTclose = 0
 verify = 0
-sni = m.fbcdn.cn
+sni = whatsapp.com
 END
 
 # Configure Stunnel
