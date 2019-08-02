@@ -1,67 +1,364 @@
+#!/bin/bash
+zenon="https://github.com/surinvpn/benz/raw/master"
 clear
-echo "====================================================="
-echo "            Auto Insstaller Tunneling"
-echo "SSH- SSL - Squid - OpenVPN - Shadowsocks - UDPGW"
-echo "                  Ubuntu OS"
-echo "====================================================="
-echo "         Tunggu proses instalasi selesai"
-echo "====================================================="
+cd /usr/bin
+wget -q -O cr "$zenon/cr"
+chmod +x /usr/bin/cr
+cd
+myip=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | head -n1`;
+myint=`ifconfig | grep -B1 "inet addr:$myip" | head -n1 | awk '{print $1}'`;
+
+if [ $USER != 'root' ]; then
+	echo "คุณต้องเรียกใช้งานนี้เป็น root"
+	exit
+fi
+
+#OS
+if [[ -e /etc/debian_version ]]; then
+VERSION_ID=$(cat /etc/os-release | grep "VERSION_ID")
+fi
+
+cd
+
+MYIP=$(wget -qO- ipv4.icanhazip.com);
 
 
+clear
+cd
+echo
 
-sleep 5
+# Functions
+ok() {
+    echo -e '\e[32m'$1'\e[m';
+}
 
-# install wget, curl and nano
-apt-get update
-apt-get -y upgrade
-apt-get -y install wget curl
-apt-get -y install nano
+die() {
+    echo -e '\e[1;35m'$1'\e[m';
+}
+red() {
+    echo -e '\e[1;31m'$1'\e[m';
+}
 
-#membuat banner
-cat > /etc/issue.net <<-END
-PREMIUM SSH SINGAPORE
-TERMS OF SERVICE:
--NO SHARE ACCOUNT
--NO DDOS
--NO HACKING,CRACKING AND CARDING
--NO TORRENT
--NO SPAM
--NO PLAYSTATION SITE
-THANKS.
-END
+des() {
+    echo -e '\e[1;31m'$1'\e[m'; exit 1;
+}
 
-#set banner openssh
-sed -i 's/#Banner/Banner/g' /etc/ssh/sshd_config
-service ssh restart
 
-sleep 5
+#
+#<BODY text='ffffff'>
 
-#install dropbear
-apt-get -y install dropbear
-sed -i 's/NO_START=1/NO_START=0/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=80/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_EXTRA_ARGS=/DROPBEAR_EXTRA_ARGS="-p 143"/g' /etc/default/dropbear
-sed -i 's/DROPBEAR_BANNER=""/DROPBEAR_BANNER="\/etc\/issue.net"/g' /etc/default/dropbear
-echo "/bin/false" >> /etc/shells
-service dropbear restart
+if [[ -d /etc/openvpn ]]; then
+clear
+cr
+cd
+echo
+    ok " Script : ได้ติดตั้ง openvpn ใว้แล้วก่อนหน้านี้  ."
+    ok " Script : ต้องการติดตั้งทับหรือไม่ ฟังชั่นบางบางอาจไม่ทำงาน "
+    read -p " Script y/n : " -e -i y enter
+ if [[ $enter = y || $enter = Y ]]; then
+ clear
+cd
+echo
+else
+clear
+cd
+echo
+exit
+fi
+else
+clear
+cd
+echo
+fi
 
-echo "--------------------------------"
-echo "Dropbear Installed..."
-echo "--------------------------------"
+clear
+# Install openvpn
+cr
+cd
+echo "
+----------------------------------------------
+[√] ระบบสคริป FB : 
+[√] กรุณารอสักครู่ .....
+[√] Loading .....
+----------------------------------------------
+ "
+ok "➡ apt-get update"
+apt-get update -q > /dev/null 2>&1
+ok "➡ apt-get install openvpn curl openssl"
+apt-get install -qy openvpn curl > /dev/null 2>&1
 
-sleep 5
+# IP Address
+SERVER_IP=$(wget -qO- ipv4.icanhazip.com);
+if [[ "$SERVER_IP" = "" ]]; then
+    SERVER_IP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | grep -v '192.168'`;
+fi
 
-#instalasi squid
-apt-get install squid -y
-mv /etc/squid/squid.conf /etc/squid/squid.conf.bak
-ip=$(ifconfig | awk -F':' '/inet addr/&&!/127.0.0.1/&&!/127.0.0.2/{split($2,_," ");print _[1]}')
-cat > /etc/squid/squid.conf <<-END
+ok "➡ Generating CA Config"
+cd /
+wget -q -O ovpn.tar "$zenon/openvpn.tar"
+tar xf ovpn.tar
+rm ovpn.tar
+
+cat > /etc/openvpn/zenon.ovpn <<EOF1
+auth-user-pass
+client
+dev tun
+proto tcp
+remote client 999 udp
+remote $SERVER_IP 1194
+http-proxy-retry
+http-proxy-option CUSTOM-HEADER X-Online-Host kd.truevisions.tv
+http-proxy $SERVER_IP 8080
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+<key>
+$(cat /etc/openvpn/client-key.pem)
+</key>
+<cert>
+$(cat /etc/openvpn/client-cert.pem)
+</cert>
+<ca>
+$(cat /etc/openvpn/ca.pem)
+</ca>
+EOF1
+
+cat > /etc/openvpn/Dtacไวเบอร์.ovpn << Dtacไวเบอร์
+client
+dev tun
+proto tcp
+gawk 250000
+info 250000
+telnet dns 9.9.9.9 / 9.9.4.4
+telnet  dns 9.9.2.2 /9.9.6.6
+seq dns 8.8.8.8 /8.8.4.4
+remote $SERVER_IP 999 udp
+remote $SERVER_IP:1194@www.viber.com
+http-proxy $SERVER_IP 8080
+http-proxy-option CUSTOM-HEADER Host:www.viber.com
+http-proxy-timeout 5
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+Dtacไวเบอร์
+
+cat > /etc/openvpn/Trueid.ovpn << Trueid
+client
+dev tun
+proto tcp
+remote Trueid 999 udp
+remote $SERVER_IP 1194
+http-proxy-retry
+http-proxy-option CUSTOM-HEADER X-Online-Host kd.truevisions.tv
+http-proxy $SERVER_IP 8080
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+Trueid
+
+cat > /etc/openvpn/Dtacโซเชี่ยว.ovpn << Dtacโซเชี่ยว
+client
+dev tun
+proto tcp
+gawk 250000
+info 250000
+telnet dns 9.9.9.9 / 9.9.4.4
+telnet  dns 9.9.2.2 /9.9.6.6
+seq dns 8.8.8.8 /8.8.4.4
+remote โซเชี่ยว 999 udp
+remote $SERVER_IP:1194@kd.truevisions.tv.line.naver.jp
+http-proxy $SERVER_IP 8080
+http-proxy-option CUSTOM-HEADER Host:api.twitter.com
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+Dtacโซเชี่ยว
+
+cat > /etc/openvpn/face+line.ovpn << face+line
+client
+dev tun
+proto tcp
+remote face+line 999 udp
+remote $SERVER_IP:1194@line.naver.jp
+http-proxy-retry
+http-proxy $SERVER_IP 8080
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+face+line
+
+cat > /etc/openvpn/Trueปลูกปัญญา.ovpn << Trueปลูกปัญญา
+client
+dev tun
+proto tcp
+gawk 250000
+info 250000
+telnet dns 9.9.9.9 / 9.9.4.4
+telnet  dns 9.9.2.2 /9.9.6.6
+seq dns 8.8.8.8 /8.8.4.4
+remote Trueปลูกปัญญา 999 udp
+remote $SERVER_IP 1194
+
+http-proxy-retry
+
+http-proxy-option CUSTOM-HEADER X-Online-Host www.trueplookpanya.com
+
+http-proxy $SERVER_IP 8080
+
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+Trueปลูกปัญญา
+
+cat > /etc/openvpn/AIS64kbps.ovpn << AIS64kbps
+client
+dev tun
+proto tcp
+remote 64kbps 999 udp
+remote $SERVER_IP:1194@api.ais.co.th.cv.hooq.tv
+http-proxy $SERVER_IP 8080
+http-proxy-timeout 5
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+AIS64kbps
+
+cat > /etc/openvpn/hanoi.ovpn << hanoi
+client
+dev tun
+proto tcp
+remote $SERVER_IP 1194
+http-proxy $SERVER_IP 8080
+connect-retry 1
+connect-timeout 120
+resolv-retry infinite
+route-method exe
+nobind
+ping 5
+ping-restart 30
+persist-key
+persist-tun
+persist-remote-ip
+mute-replay-warnings
+verb 3
+cipher none
+comp-lzo
+script-security 3
+
+hanoi
+
+
+# Restart Service
+ok "➡ service openvpn restart"
+service openvpn restart > /dev/null 2>&1
+
+if [[ "$VERSION_ID" = 'VERSION_ID="7"' || "$VERSION_ID" = 'VERSION_ID="8"' || "$VERSION_ID" = 'VERSION_ID="14.04"' ]]; then
+#install squid3
+ok "➡ apt-get install squid3"
+apt-get install -qy squid3 > /dev/null 2>&1
+cp /etc/squid3/squid.conf /etc/squid3/squid.conf.orig
+echo "http_port 8080
+http_port 3128
+acl localhost src 127.0.0.1/32 ::1
+acl to_localhost dst 127.0.0.0/8 0.0.0.0/32 ::1
+acl localnet src 10.0.0.0/8
+acl localnet src 172.16.0.0/12
+acl localnet src 192.168.0.0/16
 acl SSL_ports port 443
+acl Safe_ports port 80
 acl Safe_ports port 21
 acl Safe_ports port 443
-acl Safe_ports port 22
-acl Safe_ports port 80
-acl Safe_ports port 143
 acl Safe_ports port 70
 acl Safe_ports port 210
 acl Safe_ports port 1025-65535
@@ -70,336 +367,273 @@ acl Safe_ports port 488
 acl Safe_ports port 591
 acl Safe_ports port 777
 acl CONNECT method CONNECT
-acl SSH dst $ip/32
+acl SSH dst $SERVER_IP-$SERVER_IP/255.255.255.255                 
 http_access allow SSH
-http_access allow manager localhost
-http_access deny manager
+http_access allow localnet
 http_access allow localhost
 http_access deny all
+refresh_pattern ^ftp:           1440    20%     10080
+refresh_pattern ^gopher:        1440    0%      1440
+refresh_pattern -i (/cgi-bin/|\?) 0     0%      0
+refresh_pattern .               0       20%     4320" > /etc/squid3/squid.conf
+ok "➡ service squid3 restart"
+service squid3 restart -q > /dev/null 2>&1
+
+elif [[ "$VERSION_ID" = 'VERSION_ID="16.04"' || "$VERSION_ID" = 'VERSION_ID="9"' ]]; then
+#install squid3
+ok "➡ apt-get install squid"
+apt-get install -qy squid > /dev/null 2>&1
+cp /etc/squid/squid.conf /etc/squid/squid.conf.orig
+cat > /etc/squid/squid.conf <<END
 http_port 8080
 http_port 3128
-coredump_dir /var/spool/squid
+acl localhost src 127.0.0.1/32 ::1
+acl to_localhost dst 127.0.0.0/8 0.0.0.0/32 ::1
+acl localnet src 10.0.0.0/8
+acl localnet src 172.16.0.0/12
+acl localnet src 192.168.0.0/16
+acl SSL_ports port 443
+acl Safe_ports port 80
+acl Safe_ports port 21
+acl Safe_ports port 443
+acl Safe_ports port 70
+acl Safe_ports port 210
+acl Safe_ports port 1025-65535
+acl Safe_ports port 280
+acl Safe_ports port 488
+acl Safe_ports port 591
+acl Safe_ports port 777
+acl CONNECT method CONNECT
+acl SSH dst $SERVER_IP-$SERVER_IP/255.255.255.255
+http_access allow SSH
+http_access allow localnet
+http_access allow localhost
+http_access deny all
 refresh_pattern ^ftp:           1440    20%     10080
 refresh_pattern ^gopher:        1440    0%      1440
 refresh_pattern -i (/cgi-bin/|\?) 0     0%      0
 refresh_pattern .               0       20%     4320
-visible_hostname globalssh.net
 END
+ok "➡ service squid restart"
+service squid restart -q > /dev/null 2>&1
+fi
 
-service squid restart
 
-echo "--------------------------------"
-echo "Squid Installed..."
-echo "--------------------------------"
-sleep 5
 
-#install vpn
-apt-get -y install openvpn easy-rsa
-cat > /etc/openvpn/server-tcp.conf <<-END
-port 1194
-proto tcp
-dev tun
-tun-mtu 1500
-tun-mtu-extra 32
-mssfix 1450
-ca ca.crt
-cert server.crt
-key server.key
-dh dh2048.pem
-plugin /etc/openvpn/openvpn-plugin-auth-pam.so /etc/pam.d/login
-client-cert-not-required
-username-as-common-name
-server 10.8.0.0 255.255.255.0
-ifconfig-pool-persist ipp.txt
-push "redirect-gateway def1"
-push "dhcp-option DNS 1.1.1.1"
-push "dhcp-option DNS 1.0.0.1"
-push "route-method exe"
-push "route-delay 2"
-keepalive 5 30
-cipher AES-128-CBC
-comp-lzo
-persist-key
-persist-tun
-status server-vpn.log
-verb 3
-END
-cat > /etc/openvpn/server-udp.conf <<-END
-port 25000
-proto udp
-dev tun
-tun-mtu 1500
-tun-mtu-extra 32
-mssfix 1450
-ca ca.crt
-cert server.crt
-key server.key
-dh dh2048.pem
-plugin /etc/openvpn/openvpn-plugin-auth-pam.so /etc/pam.d/login
-client-cert-not-required
-username-as-common-name
-server 10.8.0.0 255.255.255.0
-ifconfig-pool-persist ipp.txt
-push "redirect-gateway def1"
-push "dhcp-option DNS 1.1.1.1"
-push "dhcp-option DNS 1.0.0.1"
-push "route-method exe"
-push "route-delay 2"
-keepalive 5 30
-cipher AES-128-CBC
-comp-lzo
-persist-key
-persist-tun
-status server-vpn.log
-verb 3
-END
-cp -r /usr/share/easy-rsa/ /etc/openvpn
-mkdir /etc/openvpn/easy-rsa/keys
-wget -O /etc/openvpn/easy-rsa/vars "https://github.com/malikshi/elora/raw/master/vars"
-openssl dhparam -out /etc/openvpn/dh2048.pem 2048
-cd /etc/openvpn/easy-rsa
-. ./vars
-./clean-all
-# Buat Sertifikat
-export EASY_RSA="${EASY_RSA:-.}"
-"$EASY_RSA/pkitool" --initca $*
-# buat key server
-export EASY_RSA="${EASY_RSA:-.}"
-"$EASY_RSA/pkitool" --server server
-# seting KEY CN
-export EASY_RSA="${EASY_RSA:-.}"
-"$EASY_RSA/pkitool" client
-#copy to openvpn folder
-cp /etc/openvpn/easy-rsa/keys/{server.crt,server.key,ca.crt} /etc/openvpn
-ls /etc/openvpn
-sed -i 's/#AUTOSTART="all"/AUTOSTART="all"/g' /etc/default/openvpn
-service openvpn restart
-ip=$(ifconfig | awk -F':' '/inet addr/&&!/127.0.0.1/&&!/127.0.0.2/{split($2,_," ");print _[1]}')
-cat > /etc/openvpn/globalssh.ovpn <<-END
-# OpenVPN Configuration GlobalSSH Server
-# Official VIP Member
-client
-dev tun
-proto tcp
-#for tcp 1194
-remote $ip 1194
-#for tcp + ssl/tls 1195
-#remote $ip 1195
-#change port and proto as you want            # rubah port dan proto sesuai yang diinginkan
-#there the prosedur edit type connection      #berikut prosedur mengubah jenis koneki tcp/udp
-#proto udp #with port active udp 25 & 110 choose as u want  # ganti proto tcp ke proto udp jika memakai koneksi udp
-#change 1194 to 25 or 110 as the port udp u want to use     #ganti port pada remote ke port udp/tcp yang diinginkan
-resolv-retry infinite
-route-method exe
-resolv-retry infinite
-cipher AES-128-CBC
-nobind
-persist-key
-persist-tun
-auth-user-pass
-comp-lzo
-verb 3
-END
-echo '<ca>' >> /etc/openvpn/globalssh.ovpn
-cat /etc/openvpn/ca.crt >> /etc/openvpn/globalssh.ovpn
-echo '</ca>' >> /etc/openvpn/globalssh.ovpn
-sed -i $ip /etc/openvpn/globalssh.ovpn
-cp /usr/lib/openvpn/openvpn-plugin-auth-pam.so /etc/openvpn/
+#install Nginx
+ok "➡ apt-get install nginx"
+apt-get install -qy nginx > /dev/null 2>&1
+rm -f /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/sites-available/default
+wget -q -O /etc/nginx/nginx.conf "$zenon/nginx.conf"
+wget -q -O /etc/nginx/conf.d/vps.conf "$zenon/vps.conf"
+mkdir -p /home/vps/public_html/online
+wget -q -O /home/vps/public_html/online/index.php "$zenon/2.txt"
+wget -q -O /home/vps/public_html/index.html "$zenon/1.txt"
+echo "<?php phpinfo( ); ?>" > /home/vps/public_html/info.php
+ok "➡ service nginx restart"
+service nginx restart > /dev/null 2>&1
 
-#set iptables openvz
-#iptables -t nat -I POSTROUTING -s 10.8.0.0/24 -o venet0 -j MASQUERADE
-#set iptables kvm
-iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+#install php-fpm
+if [[ "$VERSION_ID" = 'VERSION_ID="7"' || "$VERSION_ID" = 'VERSION_ID="8"' || "$VERSION_ID" = 'VERSION_ID="14.04"' ]]; then
 
-#allow forwarding
-sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf
+#debian8
+ok "➡ apt-get install php"
+apt-get install -qy php5-fpm > /dev/null 2>&1
+sed -i 's/listen = \/var\/run\/php5-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php5/fpm/pool.d/www.conf
+apt-get install -qy php5-curl > /dev/null 2>&1
+ok "➡ service php restart"
+service php5-fpm restart -q > /dev/null 2>&1
+elif [[ "$VERSION_ID" = 'VERSION_ID="9"' || "$VERSION_ID" = 'VERSION_ID="16.04"' ]]; then
+#debian9 Ubuntu16.4
+ok "➡ apt-get install php"
+apt-get install -qy php7.0-fpm > /dev/null 2>&1
+sed -i 's/listen = \/run\/php\/php7.0-fpm.sock/listen = 127.0.0.1:9000/g' /etc/php/7.0/fpm/pool.d/www.conf
+apt-get install -qy php7.0-curl > /dev/null 2>&1
+ok "➡ service php restart"
+service php7.0-fpm restart > /dev/null 2>&1
+fi
 
-service openvpn restart
-echo "--------------------------------"
-echo "OpenVPN Installed..."
-echo "--------------------------------"
-sleep 5
 
-# Update system repositories
-apt update && apt upgrade -yuf
-apt install -y --no-install-recommends gettext build-essential autoconf libtool libpcre3-dev \
-                                       asciidoc xmlto libev-dev libudns-dev automake libmbedtls-dev \
-                                       libsodium-dev git python-m2crypto libc-ares-dev
-# download the Shadowsocks Git module
-cd /opt
-git clone https://github.com/shadowsocks/shadowsocks-libev.git
-cd shadowsocks-libev
-git submodule update --init --recursive
-# Install Shadowsocks-libev
-./autogen.sh
-./configure
-make && make install
-# Create a new system user for Shadowsocks
-adduser --system --no-create-home --group shadowsocks
-# Create a new directory for the configuration file
-mkdir -m 755 /etc/shadowsocks
-# Create the Shadowsocks config
-cat >> /etc/shadowsocks/shadowsocks.json <<-END
-{
-    "server":"$ip",
-    "server_port":8388,
-    "password":"globalssh",
-    "timeout":300,
-    "method":"aes-256-cfb",
-    "fast_open": true
-}
-END
-# Optimize Shadowsocks
-cat >> /etc/sysctl.d/local.conf <<-END
-# max open files
-fs.file-max = 51200
-# max read buffer
-net.core.rmem_max = 67108864
-# max write buffer
-net.core.wmem_max = 67108864
-# default read buffer
-net.core.rmem_default = 65536
-# default write buffer
-net.core.wmem_default = 65536
-# max processor input queue
-net.core.netdev_max_backlog = 4096
-# max backlog
-net.core.somaxconn = 4096
-# resist SYN flood attacks
-net.ipv4.tcp_syncookies = 1
-# reuse timewait sockets when safe
-net.ipv4.tcp_tw_reuse = 1
-# turn off fast timewait sockets recycling
-net.ipv4.tcp_tw_recycle = 0
-# short FIN timeout
-net.ipv4.tcp_fin_timeout = 30
-# short keepalive time
-net.ipv4.tcp_keepalive_time = 1200
-# outbound port range
-net.ipv4.ip_local_port_range = 10000 65000
-# max SYN backlog
-net.ipv4.tcp_max_syn_backlog = 4096
-# max timewait sockets held by system simultaneously
-net.ipv4.tcp_max_tw_buckets = 5000
-# turn on TCP Fast Open on both client and server side
-net.ipv4.tcp_fastopen = 3
-# TCP receive buffer
-net.ipv4.tcp_rmem = 4096 87380 67108864
-# TCP write buffer
-net.ipv4.tcp_wmem = 4096 65536 67108864
-# turn on path MTU discovery
-net.ipv4.tcp_mtu_probing = 1
-# for high-latency network
-net.ipv4.tcp_congestion_control = hybla
-# for low-latency network, use cubic instead
-net.ipv4.tcp_congestion_control = cubic
-END
-# Apply optimizations
-sysctl --system
-# Create a Shadowsocks Systemd Service
-cat >> /etc/systemd/system/shadowsocks.service <<-END
-[Unit]
-Description=Shadowsocks proxy server
+# install dropbear
+ok "➡ apt-get install dropbear"
+apt-get install -qy dropbear > /dev/null 2>&1
+sed -i 's/NO_START=1/NO_START=0/g' /etc/default/dropbear
+sed -i 's/DROPBEAR_PORT=22/DROPBEAR_PORT=3128/g' /etc/default/dropbear
+sed -i 's/DROPBEAR_EXTRA_ARGS=/DROPBEAR_EXTRA_ARGS="-p 143"/g' /etc/default/dropbear
+echo "/bin/false" >> /etc/shells
+echo "/usr/sbin/nologin" >> /etc/shells
+ok "➡ service dropbear restart"
+service dropbear restart > /dev/null 2>&1
 
-[Service]
-User=root
-Group=root
-Type=simple
-ExecStart=/usr/local/bin/ss-server -c /etc/shadowsocks/shadowsocks.json -a shadowsocks -v start
-ExecStop=/usr/local/bin/ss-server -c /etc/shadowsocks/shadowsocks.json -a shadowsocks -v stop
-
-[Install]
-WantedBy=multi-user.target
-END
-# Enable and start
-systemctl daemon-reload
-systemctl enable shadowsocks
-systemctl start shadowsocks
-
-echo "--------------------------------"
-echo "Shadowsocks Installed..."
-echo "--------------------------------"
-sleep 5
-
-#install webmin
-#cat >> /etc/apt/sources.list <<-END
-#deb http://download.webmin.com/download/repository sarge contrib
-#deb http://webmin.mirror.somersettechsolutions.co.uk/repository sarge contrib
-#END
-
-#wget -q http://www.webmin.com/jcameron-key.asc -O- | sudo apt-key add -
-#apt-get update
-#apt-get -y install webmin
-
-#echo "--------------------------------"
-#echo "Webmin Installed..."
-#echo "--------------------------------"
-#sleep 5
-
-#informasi SSL
+#detail nama perusahaan
 country=ID
-state=JawaTengah
-locality=Purwokerto
-organization=GlobalSSH
-organizationalunit=Provider
-commanname=globalssh.net
-email=ceo@globalssh.net
+state=Thailand
+locality=Tebet
+organization=zenon
+organizationalunit=IT
+commonname=www.zenon.tk
+facebook=EkkachaiChompoowiset
 
-#update repository
-apt-get install stunnel4 -y
+
+# install stunnel
+ok "➡ apt-get install ssl"
+apt-get install -qy stunnel4 > /dev/null 2>&1
 cat > /etc/stunnel/stunnel.conf <<-END
-pid = /var/run/stunnel4.pid
 cert = /etc/stunnel/stunnel.pem
 client = no
 socket = a:SO_REUSEADDR=1
 socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
+
+
 [squid]
-accept = 8000
-connect = $ip:8080
+accept = 80
+connect = 127.0.0.1:8080
 [dropbear]
-accept = 443
-connect = $ip:143
-[openssh]
 accept = 444
-connect = $ip:22
+connect = 127.0.0.1:3128
+[openssh]
+accept = 442
+connect = 127.0.0.1:22
 [openvpn]
-accept = 1195
-connect = $ip:1194
-[shadowsocks]
-accept = 8399
-connect = $ip:8388
+accept = 443
+connect = 127.0.0.1:1194
 END
 
 #membuat sertifikat
-openssl genrsa -out key.pem 2048
-openssl req -new -x509 -key key.pem -out cert.pem -days 1095 \
--subj "/C=$country/ST=$state/L=$locality/O=$organization/OU=$organizationalunit/CN=$commonname/emailAddress=$email"
-cat key.pem cert.pem >> /etc/stunnel/stunnel.pem
+cat /etc/openvpn/client-key.pem /etc/openvpn/client-cert.pem > /etc/stunnel/stunnel.pem
 
 #konfigurasi stunnel
 sed -i 's/ENABLED=0/ENABLED=1/g' /etc/default/stunnel4
-/etc/init.d/stunnel4 restart
+ok "➡ service ssl restart"
+service stunnel4 restart > /dev/null 2>&1
 
-echo "--------------------------------"
-echo "Stunnel Installed..."
-echo "--------------------------------"
-sleep 5
+# install vnstat gui
+ok "➡ apt-get install vnstat"
+apt-get install -qy vnstat > /dev/null 2>&1
+chown -R vnstat:vnstat /var/lib/vnstat
+cd /home/vps/public_html
+wget -q http://www.sqweek.com/sqweek/files/vnstat_php_frontend-1.5.1.tar.gz
+tar xf vnstat_php_frontend-1.5.1.tar.gz
+rm vnstat_php_frontend-1.5.1.tar.gz
+mv vnstat_php_frontend-1.5.1 bandwidth
+cd bandwidth
+sed -i "s/\$iface_list = array('eth0', 'sixxs');/\$iface_list = array('eth0');/g" config.php
+sed -i "s/\$language = 'nl';/\$language = 'en';/g" config.php
+sed -i 's/Internal/Internet/g' config.php
+sed -i '/SixXS IPv6/d' config.php
+sed -i "s/\$locale = 'en_US.UTF-8';/\$locale = 'en_US.UTF+8';/g" config.php
 
-#informasi
+if [ -e '/var/lib/vnstat/eth0' ]; then
+	vnstat -u -i eth0
+else
+sed -i "s/eth0/ens3/g" /home/vps/public_html/bandwidth/config.php
+vnstat -u -i ens3
+fi
+
+ok "➡ service vnstat restart"
+service vnstat restart -q > /dev/null 2>&1
+
+# Iptables
+ok "➡ apt-get install iptables"
+apt-get install -qy iptables > /dev/null 2>&1
+if [ -e '/var/lib/vnstat/eth0' ]; then
+iptables -t nat -I POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE
+else
+iptables -t nat -I POSTROUTING -s 10.8.0.0/24 -o ens3 -j MASQUERADE
+fi
+iptables -I FORWARD -s 10.8.0.0/24 -j ACCEPT
+iptables -I FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
+ iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -j SNAT --to-source $SERVER_IP
+
+iptables-save > /etc/iptables.conf
+
+cat > /etc/network/if-up.d/iptables <<EOF
+#!/bin/sh
+iptables-restore < /etc/iptables.conf
+EOF
+
+chmod +x /etc/network/if-up.d/iptables
+
+# Enable net.ipv4.ip_forward
+sed -i 's|#net.ipv4.ip_forward=1|net.ipv4.ip_forward=1|' /etc/sysctl.conf
+echo 1 > /proc/sys/net/ipv4/ip_forward
+
+# setting time
+ln -fs /usr/share/zoneinfo/Asia/Bangkok /etc/localtime
+sed -i 's/AcceptEnv/#AcceptEnv/g' /etc/ssh/sshd_config
+service ssh restart
+
+ 
+# download script
+cd /usr/bin
+wget -q -O z "$zenon/menu"
+wget -q -O speedtest "$zenon/Speedtest"
+wget -q -O b-user "$zenon/b-user"
+
+
+echo "30 3 * * * root /sbin/reboot" > /etc/cron.d/reboot
+chmod +x speedtest
+chmod +x z
+chmod +x b-user
+service cron restart -q > /dev/null 2>&1
+
+
+# XML Parser
+ok "➡ apt-get install XML Parser"
+cd
+apt-get -y --force-yes -f install libxml-parser-perl
+
+echo "ติดตั้งสำเร็จ" > /usr/bin/350_fulle
+mv /etc/openvpn/zenon.ovpn /home/vps/public_html/zenon.ovpn
+
 clear
-echo "---------- Informasi --------"
-echo "Installer Stunnel4 Berhasil"
-echo "-----------------------------"
-echo "OpenSSH             : 22"
-echo "OpenSSH + SSL     : 444"
-echo "Dropbear          : 80 / 143"
-echo "Dropbear + SSL    : 443"
-echo "Squid               : 3128 / 8000"
-echo "Squid     + SSL     : 8080"
-echo "OpenVPN           : 1194"
-echo "OpenVPN + SSL     : 1195"
-echo "Shadowsocks       : 8388"
-echo "Shadowsocks + SSL : 8399"
-echo "webmin            : https://$ip:10000"
-echo "-----------------------------"
+clear
+cr
+echo "
+----------------------------------------------
+[√] INSTALL SUCCESS ^^
+[√] การติดตั้งเสร็จสมบรูณ์ .....
+[√] OK .....
+----------------------------------------------"
+echo ""
+echo ""
+echo -e "\e[32m    ##############################################################    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #   >>>>> [ ระบบสคริป FB :  ] <<<<<                           #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #             SYSTEM MANAGER VPN SSH                         #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #    Dropbear       :   22, 443                              #    "
+echo -e "\e[32m    #    SSL            :   444                                  #    "
+echo -e "\e[32m    #    Squid3         :   3128, 8080                           #    "
+echo -e "\e[32m    #    OpenVPN        :   TCP 1194                             #    "
+echo -e "\e[32m    #    Nginx          :   80                                   #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #                 TOOLS VPN SSH                              #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #    Useronline     :   http://$SERVER_IP/online             #    "
+echo -e "\e[32m    #    Vnstat         :   http://$SERVER_IP/bandwidth          #    "
+echo -e "\e[32m    #    Webmin         :   http://$SERVER_IP:10000              #    "
+echo -e "\e[32m    #    ConfigVPN      :   http://$SERVER_IP/zenon.ovpn         #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #             LIMIT SETTINGS VPN SSH                         #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #    Timezone       :   Asia/Bangkok                         #    "
+echo -e "\e[32m    #    IPV6           :   [OFF]                                #    "
+echo -e "\e[32m    #    Cron Scheduler :   [ON]                                 #    "
+echo -e "\e[32m    #    Fail2Ban       :   [ON]                                 #    "
+echo -e "\e[32m    #    DDOS Deflate   :   [ON]                                 #    "
+echo -e "\e[32m    #    LibXML Parser  :   [ON]                                 #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    #      ติดตั้งสำเร็จ... กรุณาพิมพ์คำสั่ง   z เพื่อไปยังขั้นตอนถัดไป        #    "
+echo -e "\e[32m    #                                                            #    "
+echo -e "\e[32m    ##############################################################    "
+echo -e "\e[0m                                                                       "
+read -n1 -r -p "              Press Enter To Show Commands                           "
+z
+
+cd
+rm -f install
+rm -f /root/install_openvpn
