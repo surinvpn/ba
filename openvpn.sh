@@ -383,3 +383,4 @@ echo ""
 echo "------------------------------ Modified by jm051484 -----------------------------"
 echo "-----Please Reboot your VPS -----"
 sleep 5
+rm openvpn.sh
