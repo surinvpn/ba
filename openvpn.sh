@@ -1,4 +1,5 @@
 #!/bin/sh
+
 wget -O - https://swupdate.openvpn.net/repos/repo-public.gpg|apt-key add -
 sleep 2
 echo "deb http://build.openvpn.net/debian/openvpn/release/2.4 stretch main" > /etc/apt/sources.list.d/openvpn-aptrepo.list
@@ -6,10 +7,11 @@ echo "deb http://build.openvpn.net/debian/openvpn/release/2.4 stretch main" > /e
 apt install openvpn nginx php7.0-fpm stunnel4 squid3 dropbear easy-rsa vnstat ufw build-essential fail2ban dnsutils zip -y
 
 # initializing var
-MYIP=$(wget -qO- ipv4.icanhazip.com);
-if [[ "$MYIP" = "" ]]; then
-    MYIP=`ifconfig | grep -Eo 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -Eo '([0-9]*\.){3}[0-9]*' | grep -v '127.0.0' | grep -v '192.168'`;
+MYIP=$(curl -4 icanhazip.com)
+if [ $MYIP = "" ]; then
+   MYIP=`ifconfig | grep 'inet addr:' | grep -v inet6 | grep -vE '127\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}' | cut -d: -f2 | awk '{ print $1}' | head -1`;
 fi
+MYIP2="s/xxxxxxxxx/$MYIP/g";
 cd /root
 wget "https://raw.githubusercontent.com/jm051484/VPSauto/master/tool/plugin.tgz"
 wget "https://raw.githubusercontent.com/jm051484/VPSauto/master/tool/premiummenu.zip"
@@ -48,7 +50,7 @@ echo "/bin/false" >> /etc/shells
 
 # install squid3
 wget -O /etc/squid/squid.conf "https://raw.githubusercontent.com/jm051484/Deb83in1Autoscript/master/squid3.conf"
-sed -i $MYIP /etc/squid/squid.conf;
+sed -i $MYIP2 /etc/squid/squid.conf;
 
 # setting banner
 rm /etc/issue.net
@@ -201,10 +203,16 @@ debug = 6
 
 [openvpn]
 accept = 127.0.0.1:443
-connect = $MYIP:441
+connect = $MYIP:80
+[squid1]
+accept = 127.0.0.1:8000
+connect = $MYIP:8020
+[squid2]
+accept = 127.0.0.1:8080
+connect = $MYIP:8020
 TIMEOUTclose = 0
 verify = 0
-sni = whatsapp.com
+sni = t.co
 END
 
 # Configure Stunnel
@@ -218,8 +226,16 @@ socket = l:TCP_NODELAY=1
 socket = r:TCP_NODELAY=1
 client = no
 
+[squid1]
+accept = 8020
+connect = 127.0.0.1:8000
+
+[squid2]
+accept = 8020
+connect = 127.0.0.1:8080
+
 [openvpn]
-accept = 441
+accept = 80
 connect = 127.0.0.1:443
 cert = /etc/stunnel/stunnel.pem
 
@@ -264,7 +280,6 @@ COMMIT
 -A INPUT -p tcp --dport 441  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 442  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 443  -m state --state NEW -j ACCEPT
--A INPUT -p udp --dport 443  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 587  -m state --state NEW -j ACCEPT
 -A INPUT -p tcp --dport 1147  -m state --state NEW -j ACCEPT
 -A INPUT -p udp --dport 1147  -m state --state NEW -j ACCEPT
@@ -362,7 +377,7 @@ echo "   - IPv6        : [OFF]"  | tee -a log-install.txt
 echo ""  | tee -a log-install.txt
 echo "Application & Port Information"  | tee -a log-install.txt
 echo "   - OpenVPN		: TCP 443"  | tee -a log-install.txt
-echo "   - OpenVPN-Stunnel	: 441"  | tee -a log-install.txt
+echo "   - OpenVPN-Stunnel	: 80"  | tee -a log-install.txt
 echo "   - OpenSSH  : 22, 444"  | tee -a log-install.txt
 echo "   - Dropbear		: 143, 3128"  | tee -a log-install.txt
 echo "   - Stunnel	: 442"  | tee -a log-install.txt
@@ -383,4 +398,3 @@ echo ""
 echo "------------------------------ Modified by jm051484 -----------------------------"
 echo "-----Please Reboot your VPS -----"
 sleep 5
-rm openvpn.sh
